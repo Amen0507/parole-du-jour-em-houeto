@@ -104,6 +104,10 @@ const API_BASE_URL = (window.location.origin.includes('localhost') || window.loc
       document.getElementById('btnModeEdit').classList.toggle('active', m === 'edit');
       document.getElementById('viewSection').style.display = (m === 'view') ? 'block' : 'none';
       document.getElementById('editSection').style.display = (m === 'edit') ? 'block' : 'none';
+      const testBar = document.getElementById('testModeBar');
+      if (testBar) {
+        testBar.style.display = (m === 'edit') ? 'flex' : 'none';
+      }
     }
 
     // Liturgical Theme Switcher
