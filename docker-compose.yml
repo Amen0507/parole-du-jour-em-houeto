@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  parole-du-jour:
+    build: .
+    container_name: parole_du_jour_app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./output:/app/output
+      - ./assets:/app/assets

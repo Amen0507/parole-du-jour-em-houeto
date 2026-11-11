@@ -1,0 +1,38 @@
+name: Génération quotidienne Parole du Jour
+
+on:
+  schedule:
+    # Tous les matins à 05h00 UTC (06h00 heure du Bénin)
+    - cron: '0 5 * * *'
+  workflow_dispatch: # Déclenchement manuel possible depuis l'interface GitHub
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le code source
+        uses: actions/checkout@v4
+
+      - name: Configurer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Installer les polices et dépendances
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-liberation fonts-dejavu-core
+          pip install -r requirements.txt
+
+      - name: Générer l'affiche et le post du jour
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python scripts/generate_daily.py
+
+      - name: Archiver les fichiers générés
+        uses: actions/upload-artifact@v4
+        with:
+          name: parole-du-jour-du-jour
+          path: output/
