@@ -82,11 +82,10 @@
 // CONFIGURATION DU SERVEUR BACKEND API
 // ==============================================================
 // Détection automatique en local ou lorsque servi par app.py.
-// Si le frontend est hébergé sur Cloudflare Pages et votre serveur Python sur Koyeb/Render,
-// renseignez ici l'URL publique de votre backend (ex: "https://parole-api.koyeb.app").
+// En production sur Cloudflare Pages, pointe vers le serveur Render.
 const API_BASE_URL = (window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1'))
   ? (window.location.port === '8080' ? '' : 'http://localhost:8080')
-  : '';
+  : 'https://parole-du-jour-em-houeto-backend.onrender.com';
 
     let activePalette = palettes.violet;
     let canvas = document.getElementById('posterCanvas');
