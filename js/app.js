@@ -828,6 +828,32 @@ Paroisse Saint Michel de Houéto · Enfance Missionnaire`;
       return lines;
     }
 
+    function wrapVerseCanvasBicolor(ctx, text, maxWidth) {
+      text = text.replace(/ »/g, '\u00a0»').replace(/ \?/g, '\u00a0?').replace(/ !/g, '\u00a0!').replace(/ :/g, '\u00a0:');
+      const words = text.split(/\s+/);
+
+      if (words.length >= 4) {
+        let bestSplit = null;
+        let minDiff = Infinity;
+        for (let i = 2; i < words.length - 1; i++) {
+          const l1 = words.slice(0, i).join(' ');
+          const l2 = words.slice(i).join(' ');
+          const w1 = ctx.measureText(l1).width;
+          const w2 = ctx.measureText(l2).width;
+          if (w1 <= maxWidth && w2 <= maxWidth) {
+            let diff = Math.abs(w1 - w2);
+            if (words[i - 1].endsWith(',') || words[i - 1].endsWith(';')) diff -= 80;
+            if (diff < minDiff) {
+              minDiff = diff;
+              bestSplit = [l1, l2];
+            }
+          }
+        }
+        if (bestSplit) return bestSplit;
+      }
+      return wrapCanvasLines(ctx, text, maxWidth);
+    }
+
     // ==============================================================
     // MAIN ELASTIC POSTER RENDERER (Never overflows!)
     // ==============================================================
@@ -860,11 +886,12 @@ Paroisse Saint Michel de Houéto · Enfance Missionnaire`;
         ctx.drawImage(logoImage, capX + 12, capY + 7, lw, lh);
       }
 
-      // Top Right Date & Liturgy Pill
+      // Top Right Date & Liturgy Pill (Ajustée à 18px avec auto-fit)
       const pillTxt = document.getElementById('inpDate').value.toUpperCase();
-      ctx.font = '700 19px "Plus Jakarta Sans", sans-serif';
-      const pillMetrics = ctx.measureText(pillTxt);
-      const pillW = Math.max(pillMetrics.width + 50, 520);
+      let fontDateSize = 18;
+      ctx.font = '700 ' + fontDateSize + 'px "Plus Jakarta Sans", sans-serif';
+      let pillMetrics = ctx.measureText(pillTxt);
+      const pillW = Math.max(pillMetrics.width + 80, 560);
       const pillX = W - 56 - pillW;
       const pillY = 66;
 
@@ -886,26 +913,26 @@ Paroisse Saint Michel de Houéto · Enfance Missionnaire`;
       roundRect(ctx, cardX + 8, cardY + 8, cardW - 16, cardH - 16, 20, false, true, 1);
 
       // Quotation Mark
-      ctx.font = 'italic 700 94px "Playfair Display", Georgia, serif';
+      ctx.font = 'italic 700 96px "Playfair Display", Georgia, serif';
       ctx.fillStyle = p.gold;
       ctx.textAlign = 'left';
-      ctx.fillText("“", cardX + 45, cardY + 110);
+      ctx.fillText("“", cardX + 42, cardY + 110);
 
       // DYNAMIC VERSE FONT SIZING & MULTI-LINE WRAPPING
       const verseRaw = document.getElementById('inpVerse').value.trim();
       const availW = cardW - 170; // ~798px
 
-      let verseFontSize = 46;
+      let verseFontSize = 44;
       if (verseRaw.length > 95) {
         verseFontSize = 32;
       } else if (verseRaw.length > 65) {
         verseFontSize = 36;
-      } else if (verseRaw.length > 45) {
+      } else if (verseRaw.length > 40) {
         verseFontSize = 40;
       }
 
       ctx.font = 'italic 700 ' + verseFontSize + 'px "Playfair Display", Georgia, serif';
-      const lines = wrapCanvasLines(ctx, verseRaw, availW);
+      const lines = wrapVerseCanvasBicolor(ctx, verseRaw, availW);
 
       const lineH = Math.round(verseFontSize * 1.25);
       const vStartY = cardY + 38;
@@ -918,23 +945,23 @@ Paroisse Saint Michel de Houéto · Enfance Missionnaire`;
 
       const lastVY = vStartY + lines.length * lineH;
 
-      // Dynamic Reference Badge Placement
+      // Dynamic Reference Badge Placement (Agrandie: taille 22)
       const refY = lastVY + 14;
       const refTxt = document.getElementById('inpRef').value.toUpperCase();
-      ctx.font = '700 18px "Plus Jakarta Sans", sans-serif';
+      ctx.font = '700 22px "Plus Jakarta Sans", sans-serif';
       const refMetrics = ctx.measureText(refTxt);
-      const refW = refMetrics.width + 36;
+      const refW = refMetrics.width + 40;
 
       ctx.fillStyle = p.badgeBg;
       ctx.strokeStyle = p.gold;
-      roundRect(ctx, cardX + 130, refY, refW, 36, 10, true, true, 1);
+      roundRect(ctx, cardX + 130, refY, refW, 40, 12, true, true, 1);
       ctx.fillStyle = p.badgeText;
       ctx.textAlign = 'center';
-      ctx.fillText(refTxt, cardX + 130 + refW / 2, refY + 23);
+      ctx.fillText(refTxt, cardX + 130 + refW / 2, refY + 28);
       ctx.textAlign = 'left';
 
       // Dynamic Inner Divider Line
-      const dividerY = refY + 46;
+      const dividerY = refY + 50;
       ctx.strokeStyle = p.cardInner;
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -943,9 +970,9 @@ Paroisse Saint Michel de Houéto · Enfance Missionnaire`;
       ctx.stroke();
 
       // Dynamic Lower Section (Illustration + Theme)
-      const lowerY = dividerY + 16;
-      const availLowerH = cardY + cardH - lowerY - 18;
-      const imgX = cardX + 40, imgW = 380, imgH = Math.max(180, availLowerH);
+      const lowerY = dividerY + 14;
+      const availLowerH = cardY + cardH - lowerY - 20;
+      const imgX = cardX + 40, imgW = 370, imgH = Math.max(180, availLowerH);
 
       if (currentImage.complete && currentImage.naturalWidth > 0) {
         ctx.save();
@@ -960,24 +987,29 @@ Paroisse Saint Michel de Houéto · Enfance Missionnaire`;
       }
 
       // Right Theme text
-      const textX = cardX + 450;
+      const textX = cardX + 440;
+      const rightW = cardW - 470;
       ctx.textAlign = 'left';
-      ctx.font = '700 18px "Plus Jakarta Sans", sans-serif';
+      ctx.font = '700 21px "Plus Jakarta Sans", sans-serif';
       ctx.fillStyle = p.gold;
       ctx.fillText("THÈME SPIRITUEL", textX, lowerY + 24);
 
       const themeTitle = document.getElementById('inpThemeTitle').value;
-      ctx.font = 'italic 700 29px "Playfair Display", Georgia, serif';
+      ctx.font = 'italic 700 34px "Playfair Display", Georgia, serif';
       ctx.fillStyle = p.verseColor;
-      ctx.fillText(themeTitle, textX, lowerY + 58);
+      const titleLines = wrapCanvasLines(ctx, themeTitle, rightW);
+      titleLines.slice(0, 2).forEach((tl, idx) => {
+        ctx.fillText(tl, textX, lowerY + 60 + idx * 40);
+      });
 
+      const offsetSnippet = lowerY + 60 + Math.min(titleLines.length, 2) * 40 + 8;
       const themeSnippet = document.getElementById('inpThemeSnippet').value;
-      ctx.font = 'italic 400 21px "Lora", Georgia, serif';
+      ctx.font = 'italic 400 26px "Lora", Georgia, serif';
       ctx.fillStyle = p.snippetColor;
       
-      const snipLines = wrapCanvasLines(ctx, themeSnippet, cardW - 480);
+      const snipLines = wrapCanvasLines(ctx, themeSnippet, rightW);
       snipLines.slice(0, 4).forEach((sl, idx) => {
-        ctx.fillText(sl, textX, lowerY + 98 + idx * 28);
+        ctx.fillText(sl, textX, offsetSnippet + idx * 36);
       });
 
       // 4. Question du Jour Card
@@ -987,32 +1019,32 @@ Paroisse Saint Michel de Houéto · Enfance Missionnaire`;
       roundRect(ctx, qX, qY, qW, qH, 24, true, true, 2);
 
       const tagTxt = "✦  QUESTION DU JOUR  ✦";
-      ctx.font = '700 18px "Plus Jakarta Sans", sans-serif';
+      ctx.font = '700 21px "Plus Jakarta Sans", sans-serif';
       const tagMetrics = ctx.measureText(tagTxt);
       const tagW = tagMetrics.width + 48;
       ctx.fillStyle = p.qTagBg;
       ctx.strokeStyle = p.gold;
-      roundRect(ctx, qX + 40, qY - 18, tagW, 36, 12, true, true, 1.5);
+      roundRect(ctx, qX + 40, qY - 21, tagW, 42, 14, true, true, 1.5);
 
       ctx.fillStyle = p.qTagText;
       ctx.textAlign = 'center';
-      ctx.fillText(tagTxt, qX + 40 + tagW / 2, qY + 6);
+      ctx.fillText(tagTxt, qX + 40 + tagW / 2, qY + 7);
 
-      // Question Text
+      // Question Text (Agrandie: taille 36)
       const qText = document.getElementById('inpQuestion').value;
-      ctx.font = 'italic 500 29px "Lora", Georgia, serif';
+      ctx.font = 'italic 400 36px "Lora", Georgia, serif';
       ctx.fillStyle = p.qText;
       ctx.textAlign = 'left';
-      const qLines = wrapCanvasLines(ctx, qText, qW - 90);
+      const qLines = wrapCanvasLines(ctx, qText, qW - 80);
       qLines.slice(0, 3).forEach((ql, idx) => {
-        ctx.fillText(ql, qX + 45, qY + 54 + idx * 40);
+        ctx.fillText(ql, qX + 42, qY + 70 + idx * 46);
       });
 
       // 5. Parochial Footer
       ctx.textAlign = 'center';
-      ctx.font = '500 18px "Plus Jakarta Sans", sans-serif';
-      ctx.fillStyle = '#64748b';
-      ctx.fillText("Paroisse Saint Michel de Houéto  •  Aumônerie de l'Enfance Missionnaire  •  Cotonou", W / 2, 1024);
+      ctx.font = '400 21px "Plus Jakarta Sans", sans-serif';
+      ctx.fillStyle = '#4A564F';
+      ctx.fillText("Paroisse Saint Michel de Houéto  •  Aumônerie de l'Enfance Missionnaire  •  Cotonou", W / 2, 1030);
     }
 
     // Initialisation
