@@ -330,20 +330,51 @@ const API_BASE_URL = (window.location.origin.includes('localhost') || window.loc
     }
 
     // Réinitialiser les données de test pour recommencer de zéro
-    function resetCurrentDayTest() {
+    async function resetCurrentDayTest() {
       const dateStr = document.getElementById('datePicker').value;
       if (!dateStr) return;
       localStorage.removeItem('parole_du_jour_' + dateStr);
-      checkAndDisplayDate(dateStr);
+
+      // Réinitialiser également le cache sur le serveur Render
+      if (window.location.protocol !== 'file:') {
+        try {
+          await fetch(`${API_BASE_URL}/api/reset`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date: dateStr })
+          });
+        } catch (e) {
+          console.warn("Backend reset error:", e);
+        }
+      }
+
+      const parts = dateStr.split('-');
+      const dt = new Date(parts[0], parts[1] - 1, parts[2]);
+      const formatted = formatDateFr(dt);
+      displayEmptyState(dateStr, formatted);
       showToast("✓ Données réinitialisées pour le " + dateStr + ". Prêt à générer !");
     }
 
-    function clearAllTestData() {
-      Object.keys(localStorage).forEach(k => {
-        if (k.startsWith('parole_du_jour_')) localStorage.removeItem(k);
-      });
+    async function clearAllTestData() {
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('parole_du_jour_'));
+      keys.forEach(k => localStorage.removeItem(k));
+
       const dateStr = document.getElementById('datePicker').value;
-      checkAndDisplayDate(dateStr);
+      if (dateStr) {
+        if (window.location.protocol !== 'file:') {
+          try {
+            await fetch(`${API_BASE_URL}/api/reset`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ date: dateStr })
+            });
+          } catch (e) {}
+        }
+        const parts = dateStr.split('-');
+        const dt = new Date(parts[0], parts[1] - 1, parts[2]);
+        const formatted = formatDateFr(dt);
+        displayEmptyState(dateStr, formatted);
+      }
       showToast("✓ Tout le cache de test a été réinitialisé.");
     }
 
@@ -417,7 +448,7 @@ const API_BASE_URL = (window.location.origin.includes('localhost') || window.loc
             const apiResp = await fetch(`${API_BASE_URL}/api/generate`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ date: dateStr })
+              body: JSON.stringify({ date: dateStr, force: true })
             });
             if (apiResp.ok) {
               const res = await apiResp.json();
@@ -612,24 +643,32 @@ const API_BASE_URL = (window.location.origin.includes('localhost') || window.loc
           resume = "Au matin de Pâques, le tombeau est vide et les anges annoncent la plus grande nouvelle de l'histoire humaine : Jésus est vivant !\n\nIl apparaît à ses disciples et répand sur eux sa paix souveraine.";
           reflexion = "La résurrection n'est pas un événement du passé, elle est une puissance agissante dans la vie de chaque croyant.\n\nAucune obscurité n'a le dernier mot face au Christ ressuscité.\n\nVivons chaque jour avec la certitude joyeuse que l'amour de Dieu triomphe toujours.";
           priere = "Ô Christ ressuscité, illumine ma vie de ta clarté glorieuse. Éloigne de moi le découragement et fais de moi un témoin radieux de ton espérance. Amen.";
+        } else if (corpus.includes('pleura sur elle') || corpus.includes('ce qui donne la paix') || corpus.includes('visitée') || corpus.includes('visitee') || (ref.includes('19') && ['41-44', '41 - 44', '41, 44', '41–44'].some(v => ref.includes(v)))) {
+          passage_fort = "« Ah ! si toi aussi, tu avais reconnu en ce jour ce qui donne la paix ! »";
+          theme_titre = "Accueillir le Don de la Paix";
+          theme_synthese = "En pleurant sur Jérusalem, Jésus nous supplie d'ouvrir nos cœurs à Sa grâce. Ne manquons pas l'heure de Sa visite d'amour et de réconciliation.";
+          question_du_jour = "« Est-ce que je sais discerner la présence discrète du Christ dans mon quotidien et accueillir Sa paix véritable au milieu de mes agitations ? »";
+          resume = "En contemplant Jérusalem depuis le mont des Oliviers, Jésus pleure sur la cité sainte qui s'est fermée à la grâce de Dieu.\n\nIl avertit des conséquences spirituelles de l'endurcissement du cœur face à l'amour divin.";
+          reflexion = "Les larmes de Jésus expriment la souffrance infinie de l'amour divin méconnu et rejeté.\n\nCombien de fois le Seigneur frappe-t-il à notre porte par une parole, une rencontre ou une inspiration sans que nous l'écoutions ?\n\nDemandons la grâce de reconnaître aujourd'hui ce qui nous apporte la paix profonde.";
+          priere = "Seigneur Jésus, ouvre les yeux de mon cœur pour que je reconnaisse ta visite d'amour. Donne-moi un esprit docile à ta parole et accorde-moi ta paix qui surpasse toute inquiétude. Amen.";
         } else {
           const cleanTitre = titre.replace(/[«»]/g, '').trim();
           passage_fort = cleanTitre ? `« ${cleanTitre} »` : "« Ta foi t'a sauvé, va en paix. »";
 
-          if (cleanTitre && cleanTitre.length <= 36 && !['en ce temps', 'comme', 'quand'].some(w => cleanTitre.toLowerCase().includes(w))) {
+          if (cleanTitre && cleanTitre.length <= 36 && !['en ce temps', 'comme', 'quand', 'alors'].some(w => cleanTitre.toLowerCase().includes(w))) {
             theme_titre = cleanTitre;
           } else if (ligne1.toLowerCase().includes('avent')) {
             theme_titre = "L'Espérance de l'Avent";
           } else if (ligne1.toLowerCase().includes('carême') || ligne1.toLowerCase().includes('careme')) {
             theme_titre = "La Grâce de la Conversion";
-          } else if (feteAffichee && !feteAffichee.toLowerCase().startsWith('de la')) {
-            theme_titre = feteAffichee.slice(0, 36);
+          } else if (feteAffichee && !feteAffichee.toLowerCase().startsWith('de la') && !feteAffichee.toLowerCase().includes('temps ordinaire')) {
+            theme_titre = feteAffichee.length <= 35 ? feteAffichee : feteAffichee.slice(0, 35).replace(/\s+\S*$/, '');
           } else {
             theme_titre = "Parole de Vie Éternelle";
           }
 
           theme_synthese = `Méditons la Parole du Seigneur (${ref}) qui illumine notre route chaque jour. Elle est une source inépuisable de réconfort et de sanctification pour notre foi.`;
-          question_du_jour = "« Comment puis-je accueillir et mettre en pratique cette Parole de Dieu aujourd'hui dans ma vie concrète ? »";
+          question_du_jour = `« Comment cette Parole (${ref}) m'invite-t-elle concrètement à grandir dans la foi et l'amour du prochain aujourd'hui ? »`;
           resume = `Lecture de la sainte liturgie de ce jour selon ${ref}.\n\nLe Seigneur nous invite à renouveler notre confiance et à avancer avec fidélité sur le chemin de l'Évangile.`;
           reflexion = "Chaque verset de l'Écriture Sainte porte une promesse de renouveau pour celui qui écoute avec un cœur droit.\n\nNe laissons pas passer cette journée sans laisser la Parole porter du fruit dans nos actes et nos pensées.\n\nEn communion avec toute la communauté paroissiale, fortifions notre engagement spirituel.";
           priere = "Seigneur, que ta Parole vivante soit la lampe de mes pas et la lumière sur ma route. Conduis-moi selon ta vérité et accorde-moi ta grâce. Amen.";

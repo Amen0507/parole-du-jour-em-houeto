@@ -49,7 +49,7 @@ class ParoleHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
-        if self.path == "/api/generate":
+        if self.path == "/api/reset":
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length).decode('utf-8')
             try:
@@ -58,10 +58,48 @@ class ParoleHandler(SimpleHTTPRequestHandler):
                 params = {}
 
             date_str = params.get("date")
+            deleted_files = []
+            if date_str:
+                for filename in [
+                    f"output/data-{date_str}.json",
+                    f"output/parole-du-jour-{date_str}.png",
+                    f"output/post-{date_str}.txt",
+                    f"output/illustration-{date_str}.jpg"
+                ]:
+                    if os.path.exists(filename):
+                        try:
+                            os.remove(filename)
+                            deleted_files.append(filename)
+                        except Exception as e:
+                            print(f"[!] Erreur suppression {filename}: {e}")
+
+                resp_dict = {"status": "success", "message": f"Cache réinitialisé pour {date_str}", "deleted": deleted_files}
+            else:
+                resp_dict = {"status": "error", "message": "Date manquante pour la réinitialisation"}
+
+            resp_bytes = json.dumps(resp_dict, ensure_ascii=False).encode('utf-8')
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json; charset=utf-8')
+            self.send_header('Content-Length', str(len(resp_bytes)))
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(resp_bytes)
+            return
+
+        elif self.path == "/api/generate":
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length).decode('utf-8')
             try:
-                # Vérifier si l'affiche existe déjà pour éviter toute duplication
+                params = json.loads(post_data) if post_data else {}
+            except Exception:
+                params = {}
+
+            date_str = params.get("date")
+            force = params.get("force", False)
+            try:
+                # Vérifier si l'affiche existe déjà pour éviter toute duplication inutile sauf si force=True
                 data_file = f"output/data-{date_str}.json"
-                if date_str and os.path.exists(data_file):
+                if not force and date_str and os.path.exists(data_file):
                     with open(data_file, "r", encoding="utf-8") as f:
                         result = json.load(f)
                 else:

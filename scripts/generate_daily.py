@@ -153,10 +153,10 @@ def resolve_harmonious_illustration(date_str, ref, fete, theme_titre, couleur="v
         return ai_img_path, "Illustration générée par l'IA"
 
     models_to_try = [
-        "gemini-2.5-flash-image",
         "gemini-3.1-flash-image",
         "gemini-3.1-flash-lite-image",
-        "imagen-3.0-generate-002"
+        "gemini-3-pro-image",
+        "gemini-2.5-flash-image"
     ]
 
     print("[*] Tentative de génération de l'illustration sacrée par l'IA...")
@@ -218,10 +218,11 @@ Génère une réponse STRICTEMENT au format JSON (sans markdown ```json, juste l
 }}"""
 
     models_to_try = [
-        "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-flash",
-        "gemini-flash"
+        "gemini-flash-lite-latest",
+        "gemini-3.8-flash",
+        "gemini-flash-latest",
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash-lite"
     ]
 
     for model in models_to_try:
@@ -237,7 +238,7 @@ Génère une réponse STRICTEMENT au format JSON (sans markdown ```json, juste l
         req = urllib.request.Request(url, data=data_bytes, headers={"Content-Type": "application/json"})
         
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=25) as resp:
                 res_json = json.loads(resp.read().decode("utf-8"))
                 candidates = res_json.get("candidates", [])
                 if candidates:
@@ -246,8 +247,11 @@ Génère une réponse STRICTEMENT au format JSON (sans markdown ```json, juste l
                         raw_text = raw_text.split("```")[1]
                         if raw_text.startswith("json"):
                             raw_text = raw_text[4:]
-                    return json.loads(raw_text.strip())
-        except Exception:
+                    parsed = json.loads(raw_text.strip())
+                    print(f"[✓] Analyse spirituelle générée avec succès via Gemini ({model})")
+                    return parsed
+        except Exception as e:
+            print(f"[-] Gemini ({model}) indisponible : {e}", file=sys.stderr)
             continue
 
     return None
@@ -340,6 +344,16 @@ def harmonize_fallback(date_str, ref, evangile, liturgical_info, raw_text):
         reflexion = "L'Eucharistie est la source et le sommet de toute la vie chrétienne.\n\nEn recevant le Pain du Ciel, nous sommes fortifiés pour devenir à notre tour des témoins vivants de la miséricorde.\n\nQue notre communion dominicale transforme nos relations et nos actes au quotidien."
         priere = "Seigneur Jésus, Pain vivant descendu du Ciel, nourris mon âme de ta sainte présence. Fais de moi un instrument d'unité et de paix dans ton Église. Amen."
 
+    # 5. Jésus pleurant sur Jérusalem et le don de la paix (Lc 19, 41-44)
+    elif any(k in corpus for k in ["pleura sur elle", "ce qui donne la paix", "visitée", "visitee"]) or ("19" in ref and any(v in ref for v in ["41-44", "41 - 44", "41, 44", "41–44"])):
+        passage_fort = "« Ah ! si toi aussi, tu avais reconnu en ce jour ce qui donne la paix ! »"
+        theme_titre = "Accueillir le Don de la Paix"
+        theme_synthese = "En pleurant sur Jérusalem, Jésus nous supplie d'ouvrir nos cœurs à Sa grâce. Ne manquons pas l'heure de Sa visite d'amour et de réconciliation."
+        question_du_jour = "« Est-ce que je sais discerner la présence discrète du Christ dans mon quotidien et accueillir Sa paix véritable au milieu de mes agitations ? »"
+        resume = "En contemplant Jérusalem depuis le mont des Oliviers, Jésus pleure sur la cité sainte qui s'est fermée à la grâce de Dieu.\n\nIl avertit des conséquences spirituelles de l'endurcissement du cœur face à l'amour divin."
+        reflexion = "Les larmes de Jésus expriment la souffrance infinie de l'amour divin méconnu et rejeté.\n\nCombien de fois le Seigneur frappe-t-il à notre porte par une parole, une rencontre ou une inspiration sans que nous l'écoutions ?\n\nDemandons la grâce de reconnaître aujourd'hui ce qui nous apporte la paix profonde."
+        priere = "Seigneur Jésus, ouvre les yeux de mon cœur pour que je reconnaisse ta visite d'amour. Donne-moi un esprit docile à ta parole et accorde-moi ta paix qui surpasse toute inquiétude. Amen."
+
     else:
         clean_title = titre.replace("«", "").replace("»", "").strip() if titre else "Ta foi t'a sauvé"
         passage_fort = f"« {clean_title} »"
@@ -349,13 +363,22 @@ def harmonize_fallback(date_str, ref, evangile, liturgical_info, raw_text):
             theme_titre = "L'Espérance de l'Avent"
         elif "carême" in ligne1.lower() or "careme" in ligne1.lower():
             theme_titre = "La Grâce de la Conversion"
-        elif fete_clean and not fete_clean.lower().startswith("de la"):
-            theme_titre = fete_clean[:35]
+        elif fete_clean and not fete_clean.lower().startswith("de la") and "temps ordinaire" not in fete_clean.lower():
+            # Ne pas couper au milieu d'un mot
+            if len(fete_clean) <= 35:
+                theme_titre = fete_clean
+            else:
+                words = fete_clean[:35].rsplit(" ", 1)
+                theme_titre = words[0] if len(words) > 1 else fete_clean[:30]
         else:
-            theme_titre = "Parole de Vie Éternelle"
+            # Générer un titre percutant à partir du titre de l'évangile ou de la référence
+            if clean_title and len(clean_title) <= 35 and not any(w in clean_title.lower() for w in ["en ce temps", "comme", "quand", "alors"]):
+                theme_titre = clean_title
+            else:
+                theme_titre = "Parole de Vie Éternelle"
 
-        theme_synthese = "Méditons la Parole du Seigneur qui illumine notre route chaque jour. Elle est une source inépuisable de réconfort et de sanctification pour notre foi."
-        question_du_jour = "« Comment puis-je accueillir et mettre en pratique cette Parole de Dieu aujourd'hui dans ma vie concrète ? »"
+        theme_synthese = f"Méditons la Parole du Seigneur ({ref}) qui illumine notre route chaque jour. Elle est une source inépuisable de réconfort et de sanctification pour notre foi."
+        question_du_jour = f"« Comment cette Parole de Dieu ({ref}) m'invite-t-elle concrètement à grandir dans la charité et l'écoute du prochain aujourd'hui ? »"
         resume = f"Lecture de la sainte liturgie de ce jour selon {ref}.\n\nLe Seigneur nous invite à renouveler notre confiance et à avancer avec fidélité sur le chemin de l'Évangile."
         reflexion = "Chaque verset de l'Écriture Sainte porte une promesse de renouveau pour celui qui écoute avec foi.\n\nNe laissons pas passer cette journée sans laisser la Parole porter du fruit dans nos actes et nos pensées.\n\nEn communion avec toute l'Église, fortifions notre engagement baptismal."
         priere = "Seigneur, que ta Parole vivante soit la lumière de mes pas et la joie de mon âme. Conduis-moi selon ta vérité et accorde-moi la paix. Amen."
